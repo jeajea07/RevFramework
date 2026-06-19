@@ -8,6 +8,10 @@
     <servlet>
         <servlet-name>FrontControllerServlet</servlet-name>
         <servlet-class>rev.servlet.FrontControllerServlet</servlet-class>
+        <init-param>
+            <param-name>controllerPackage</param-name>
+            <param-value>controllers</param-value>
+        </init-param>
     </servlet>
 
     <servlet-mapping>
