@@ -1,9 +1,14 @@
 package rev.utils;
 
 import java.io.File;
+import java.lang.reflect.Method;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+
+import rev.annotation.controller.UrlMapping;
 
 public class Utilitaire {
 
@@ -42,5 +47,20 @@ public class Utilitaire {
             }
         }
         return annotedClassLists;
+    }
+
+    public Map<String, Mapping> getUrlMappings(List<String> annotedClassList) throws Exception {
+        Map<String, Mapping> mappings = new HashMap<>();
+        for (String className : annotedClassList) {
+            Class<?> clazz = Class.forName(className);
+            Method[] methods = clazz.getDeclaredMethods();
+            for (Method method : methods) {
+                if (method.isAnnotationPresent(UrlMapping.class)) {
+                    String url = method.getAnnotation(UrlMapping.class).value();
+                    mappings.put(url, new Mapping(clazz, method));
+                }
+            }
+        }
+        return mappings;
     }
 }
