@@ -5,7 +5,7 @@ import rev.annotation.controller.UrlMapping;
 @Controller
 public class Test2 {
 
-    @UrlMapping("/Test2/accueil")
+    @UrlMapping(value = "/Test2/accueil", method = "POST")
     public String accueil() {
         return "Bienvenue sur la page d'accueil";
     }
