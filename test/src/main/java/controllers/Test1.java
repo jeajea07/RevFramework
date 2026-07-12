@@ -18,7 +18,7 @@ public class Test1 {
         fruits.add("Mangue");
         fruits.add("Litchi");
 
-        ModelAndView mv = new ModelAndView("liste"); // juste le nom, sans prefixe/suffixe
+        ModelAndView mv = new ModelAndView("liste"); 
         mv.addObject("fruits", fruits);
         return mv;
     }

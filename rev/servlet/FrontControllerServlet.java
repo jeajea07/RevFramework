@@ -71,7 +71,7 @@ public class FrontControllerServlet extends HttpServlet {
 
                     RequestDispatcher dispatcher = req.getRequestDispatcher(cheminVue);
                     dispatcher.forward(req, res);
-                    return; // la réponse est gérée par le forward, on s'arrête ici
+                    return; 
 
                 } else {
                     out.println("<p>Tongasoa ato amin'ny <b>" + method + "</b></p>");
@@ -115,23 +115,14 @@ public class FrontControllerServlet extends HttpServlet {
         }
     }
 
-    private boolean handleInternalJspForward(HttpServletRequest req, HttpServletResponse res)
-            throws ServletException, IOException {
-        if (req.getDispatcherType() == DispatcherType.FORWARD) {
-            String jspPath = req.getServletPath();
-            req.setAttribute("org.apache.catalina.jsp_file", jspPath);
-            RequestDispatcher jspDispatcher = getServletContext().getNamedDispatcher("jsp");
-            jspDispatcher.forward(req, res);
-            return true;
-        }
-        return false;
-    }
-
-    @Override
+   @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse res) throws ServletException, IOException {
         res.setContentType("text/html;charset=UTF-8");
 
-        if (handleInternalJspForward(req, res)) {
+        if (req.getDispatcherType() == DispatcherType.FORWARD) {
+            String jspPath = req.getServletPath();
+            req.setAttribute("org.apache.catalina.jsp_file", jspPath);
+            getServletContext().getNamedDispatcher("jsp").forward(req, res);
             return;
         }
 
@@ -142,7 +133,10 @@ public class FrontControllerServlet extends HttpServlet {
     protected void doPost(HttpServletRequest req, HttpServletResponse res) throws ServletException, IOException {
         res.setContentType("text/html;charset=UTF-8");
 
-        if (handleInternalJspForward(req, res)) {
+        if (req.getDispatcherType() == DispatcherType.FORWARD) {
+            String jspPath = req.getServletPath();
+            req.setAttribute("org.apache.catalina.jsp_file", jspPath);
+            getServletContext().getNamedDispatcher("jsp").forward(req, res);
             return;
         }
 
