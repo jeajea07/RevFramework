@@ -49,15 +49,16 @@ public class Utilitaire {
         return annotedClassLists;
     }
 
-    public Map<String, Mapping> getUrlMappings(List<String> annotedClassList) throws Exception {
-        Map<String, Mapping> mappings = new HashMap<>();
+    public Map<UrlMethode, Mapping> getUrlMappings(List<String> annotedClassList) throws Exception {
+        Map<UrlMethode, Mapping> mappings = new HashMap<>();
         for (String className : annotedClassList) {
             Class<?> clazz = Class.forName(className);
             Method[] methods = clazz.getDeclaredMethods();
             for (Method method : methods) {
                 if (method.isAnnotationPresent(UrlMapping.class)) {
                     String url = method.getAnnotation(UrlMapping.class).value();
-                    mappings.put(url, new Mapping(clazz, method));
+                    String methodType = method.getAnnotation(UrlMapping.class).method();
+                    mappings.put(new UrlMethode(url, methodType), new Mapping(clazz, method));
                 }
             }
         }

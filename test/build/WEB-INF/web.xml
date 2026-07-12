@@ -12,6 +12,14 @@
             <param-name>controllerPackage</param-name>
             <param-value>controllers</param-value>
         </init-param>
+        <init-param>
+            <param-name>prefix</param-name>
+            <param-value>/WEB-INF/vues/</param-value>
+        </init-param>
+        <init-param>
+            <param-name>suffix</param-name>
+            <param-value>.jsp</param-value>
+        </init-param>
     </servlet>
 
     <servlet-mapping>
