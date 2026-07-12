@@ -9,4 +9,6 @@ import java.lang.annotation.RetentionPolicy;
 @Target(ElementType.METHOD)
 public @interface UrlMapping {
     String value();
+    String method();
 }
+
