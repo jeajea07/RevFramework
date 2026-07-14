@@ -5,26 +5,31 @@
                              https://jakarta.ee/xml/ns/jakartaee/web-app_6_0.xsd"
          version="6.0">
 
+    <context-param>
+        <param-name>controllerPackage</param-name>
+        <param-value>controllers</param-value>
+    </context-param>
+    <context-param>
+        <param-name>prefix</param-name>
+        <param-value>/WEB-INF/vues/</param-value>
+    </context-param>
+    <context-param>
+        <param-name>suffix</param-name>
+        <param-value>.jsp</param-value>
+    </context-param>
+
+    <listener>
+        <listener-class>rev.listener.RevInitListener</listener-class>
+    </listener>
+
     <servlet>
         <servlet-name>FrontControllerServlet</servlet-name>
         <servlet-class>rev.servlet.FrontControllerServlet</servlet-class>
-        <init-param>
-            <param-name>controllerPackage</param-name>
-            <param-value>controllers</param-value>
-        </init-param>
-        <init-param>
-            <param-name>prefix</param-name>
-            <param-value>/WEB-INF/vues/</param-value>
-        </init-param>
-        <init-param>
-            <param-name>suffix</param-name>
-            <param-value>.jsp</param-value>
-        </init-param>
     </servlet>
 
     <servlet-mapping>
         <servlet-name>FrontControllerServlet</servlet-name>
-        <url-pattern>/*</url-pattern>
+        <url-pattern>/</url-pattern>
     </servlet-mapping>
 
 </web-app>
