@@ -1,6 +1,5 @@
 package rev.servlet;
 
-import jakarta.servlet.DispatcherType;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.RequestDispatcher;
 import jakarta.servlet.http.HttpServlet;
@@ -11,34 +10,20 @@ import java.io.PrintWriter;
 import java.util.List;
 import java.util.Map;
 
-import rev.annotation.controller.Controller;
 import rev.utils.Mapping;
 import rev.utils.ModelAndView;
 import rev.utils.UrlMethode;
-import rev.utils.Utilitaire;
 
 public class FrontControllerServlet extends HttpServlet {
-    private List<String> annotedClasses;
-    private Map<UrlMethode, Mapping> urlMappings;
-    private String prefix;
-    private String suffix;
 
-    @Override
-    public void init() throws ServletException {
+    @SuppressWarnings("unchecked")
+    private Map<UrlMethode, Mapping> getUrlMappings() {
+        return (Map<UrlMethode, Mapping>) getServletContext().getAttribute("urlMappings");
+    }
 
-        try {
-            String packageName = this.getInitParameter("controllerPackage");
-            this.prefix = this.getInitParameter("prefix");
-            this.suffix = this.getInitParameter("suffix");
-
-            Utilitaire utils = new Utilitaire();
-            List<String> classList = utils.getClassLists(packageName);
-            this.annotedClasses = utils.getAnnotedClassList(Controller.class, "classe", classList);
-            this.urlMappings = utils.getUrlMappings(this.annotedClasses);
-
-        } catch (Exception e) {
-            throw new ServletException(e);
-        }
+    @SuppressWarnings("unchecked")
+    private List<String> getAnnotedClasses() {
+        return (List<String>) getServletContext().getAttribute("annotedClasses");
     }
 
     void processRequest(HttpServletRequest req, HttpServletResponse res) throws ServletException, IOException {
@@ -49,6 +34,9 @@ public class FrontControllerServlet extends HttpServlet {
 
         String contextPath = req.getContextPath();
         String calledUrl = url.substring(contextPath.length());
+
+        Map<UrlMethode, Mapping> urlMappings = getUrlMappings();
+        List<String> annotedClasses = getAnnotedClasses();
 
         UrlMethode key = new UrlMethode(calledUrl, method);
         Mapping found = urlMappings.get(key);
@@ -67,11 +55,13 @@ public class FrontControllerServlet extends HttpServlet {
                         req.setAttribute(entry.getKey(), entry.getValue());
                     }
 
+                    String prefix = getServletContext().getInitParameter("prefix");
+                    String suffix = getServletContext().getInitParameter("suffix");
                     String cheminVue = prefix + mv.getVue() + suffix;
 
                     RequestDispatcher dispatcher = req.getRequestDispatcher(cheminVue);
                     dispatcher.forward(req, res);
-                    return; 
+                    return;
 
                 } else {
                     out.println("<p>Tongasoa ato amin'ny <b>" + method + "</b></p>");
@@ -115,31 +105,15 @@ public class FrontControllerServlet extends HttpServlet {
         }
     }
 
-   @Override
+    @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse res) throws ServletException, IOException {
         res.setContentType("text/html;charset=UTF-8");
-
-        if (req.getDispatcherType() == DispatcherType.FORWARD) {
-            String jspPath = req.getServletPath();
-            req.setAttribute("org.apache.catalina.jsp_file", jspPath);
-            getServletContext().getNamedDispatcher("jsp").forward(req, res);
-            return;
-        }
-
         processRequest(req, res);
     }
 
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse res) throws ServletException, IOException {
         res.setContentType("text/html;charset=UTF-8");
-
-        if (req.getDispatcherType() == DispatcherType.FORWARD) {
-            String jspPath = req.getServletPath();
-            req.setAttribute("org.apache.catalina.jsp_file", jspPath);
-            getServletContext().getNamedDispatcher("jsp").forward(req, res);
-            return;
-        }
-
         processRequest(req, res);
     }
 }
