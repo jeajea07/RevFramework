@@ -7,8 +7,12 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Map;
+
+import org.springframework.context.ApplicationContext;
+import org.springframework.web.context.support.WebApplicationContextUtils;
 
 import rev.utils.Mapping;
 import rev.utils.ModelAndView;
@@ -24,6 +28,22 @@ public class FrontControllerServlet extends HttpServlet {
     @SuppressWarnings("unchecked")
     private List<String> getAnnotedClasses() {
         return (List<String>) getServletContext().getAttribute("annotedClasses");
+    }
+
+    private Object[] resolveArgs(Method method) {
+        Class<?>[] paramTypes = method.getParameterTypes();
+        Object[] args = new Object[paramTypes.length];
+
+        for (int i = 0; i < paramTypes.length; i++) {
+            if (ApplicationContext.class.isAssignableFrom(paramTypes[i])) {
+                ApplicationContext ctx =
+                        WebApplicationContextUtils.getWebApplicationContext(getServletContext());
+                args[i] = ctx;
+            } else {
+                args[i] = null;
+            }
+        }
+        return args;
     }
 
     void processRequest(HttpServletRequest req, HttpServletResponse res) throws ServletException, IOException {
@@ -46,7 +66,8 @@ public class FrontControllerServlet extends HttpServlet {
                 Class<?> controllerClass = found.getControllerClass();
                 Object instance = controllerClass.getDeclaredConstructor().newInstance();
 
-                Object result = found.getMethod().invoke(instance);
+                Object[] args = resolveArgs(found.getMethod());
+                Object result = found.getMethod().invoke(instance, args);
 
                 if (result instanceof ModelAndView) {
                     ModelAndView mv = (ModelAndView) result;

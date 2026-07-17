@@ -1,6 +1,7 @@
 package rev.utils;
 
 import java.io.File;
+import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.net.URL;
 import java.util.ArrayList;
@@ -36,13 +37,13 @@ public class Utilitaire {
         return classLists;
     }
 
-    public List<String> getAnnotedClassList(Class<?> annotationClass, String type, List<String> classList) throws Exception {
+    public List<String> getAnnotedClassList(Class<? extends Annotation> annotationClass, String type, List<String> classList) throws Exception {
         List<String> annotedClassLists = new ArrayList<>();
         for (String className : classList) {
             Class<?> clazz = Class.forName(className);
             if (type.equalsIgnoreCase("classe")) {
-                if (clazz.isAnnotationPresent((Class) annotationClass)) {
-                    annotedClassLists.add(className); 
+                if (clazz.isAnnotationPresent(annotationClass)) {
+                    annotedClassLists.add(className);
                 }
             }
         }
