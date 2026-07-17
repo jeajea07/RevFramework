@@ -18,6 +18,36 @@
         <param-value>.jsp</param-value>
     </context-param>
 
+    <context-param>
+        <param-name>db.driver</param-name>
+        <param-value>com.mysql.cj.jdbc.Driver</param-value>
+    </context-param>
+    <context-param>
+        <param-name>db.url</param-name>
+        <param-value>jdbc:mysql://localhost:3306/rev_db</param-value>
+    </context-param>
+    <context-param>
+        <param-name>db.user</param-name>
+        <param-value>root</param-value>
+    </context-param>
+    <context-param>
+        <param-name>db.password</param-name>
+        <param-value></param-value>
+    </context-param>
+
+    <context-param>
+        <param-name>contextClass</param-name>
+        <param-value>org.springframework.web.context.support.AnnotationConfigWebApplicationContext</param-value>
+    </context-param>
+    <context-param>
+        <param-name>contextConfigLocation</param-name>
+        <param-value>config.AppConfig</param-value>
+    </context-param>
+
+    <listener>
+        <listener-class>org.springframework.web.context.ContextLoaderListener</listener-class>
+    </listener>
+
     <listener>
         <listener-class>rev.listener.RevInitListener</listener-class>
     </listener>

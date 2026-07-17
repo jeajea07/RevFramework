@@ -14,15 +14,22 @@ mkdir -p $BUILD_DIR/WEB-INF/classes
 
 cp -r $WEB_DIR/* $BUILD_DIR/
 
-cp "$FRAMEWORK_JAR" "$BUILD_DIR/WEB-INF/lib/"
+# copie TOUS les jars de lib/ (framework + spring + hibernate + mysql...) dans le war
+cp "$LIB_DIR"/*.jar "$BUILD_DIR/WEB-INF/lib/"
+
+# construit le classpath de compilation avec tous les jars de lib/
+CP="$TOMCAT_LIB/*"
+for jar in "$LIB_DIR"/*.jar; do
+    CP="$CP:$jar"
+done
 
 javac -d "$BUILD_DIR/WEB-INF/classes" \
-      -cp "$FRAMEWORK_JAR:$TOMCAT_LIB/*" \
+-cp "$CP" \
       $(find $JAVA_SRC_DIR -name "*.java")
 
 if [ $? -ne 0 ]; then
-    echo "Échec de la compilation !"
-    exit 1
+echo "Échec de la compilation !"
+exit 1
 fi
 
 cd $BUILD_DIR || exit

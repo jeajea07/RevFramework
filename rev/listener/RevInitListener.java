@@ -34,6 +34,5 @@ public class RevInitListener implements ServletContextListener {
 
     @Override
     public void contextDestroyed(ServletContextEvent sce) {
-        // rien à nettoyer pour l'instant
     }
 }

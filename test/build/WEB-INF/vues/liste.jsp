@@ -1,5 +1,6 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%@ page import="java.util.List" %>
+<%@ page import="entities.Fruit" %>
 <!DOCTYPE html>
 <html>
 <head><title>Liste des fruits</title></head>
@@ -7,10 +8,10 @@
     <h1>Liste</h1>
     <ul>
         <%
-            List<String> fruits = (List<String>) request.getAttribute("fruits");
-            for (String f : fruits) {
+            List<Fruit> fruits = (List<Fruit>) request.getAttribute("fruits");
+            for (Fruit f : fruits) {
         %>
-            <li><%= f %></li>
+            <li><%= f.getNom() %></li>
         <%
             }
         %>
