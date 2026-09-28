@@ -1,5 +1,5 @@
 #!/bin/bash
-APP_NAME="TesteFramework"
+APP_NAME="TesteRev"
 WEB_DIR="src/main/webapp"
 JAVA_SRC_DIR="src/main/java"
 BUILD_DIR="build"
