@@ -23,7 +23,7 @@ for jar in "$LIB_DIR"/*.jar; do
     CP="$CP:$jar"
 done
 
-javac -d "$BUILD_DIR/WEB-INF/classes" \
+javac -parameters -d "$BUILD_DIR/WEB-INF/classes" \
 -cp "$CP" \
       $(find $JAVA_SRC_DIR -name "*.java")
 
