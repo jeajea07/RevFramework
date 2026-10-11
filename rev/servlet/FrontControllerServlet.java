@@ -9,6 +9,8 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
 import java.util.List;
 import java.util.Map;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -47,25 +49,55 @@ public class FrontControllerServlet extends HttpServlet {
             Parameter p = params[i];
             Class<?> type = p.getType();
 
-            // cas spécial déjà existant : injection du contexte Spring
             if (ApplicationContext.class.isAssignableFrom(type)) {
                 args[i] = WebApplicationContextUtils.getWebApplicationContext(getServletContext());
                 continue;
             }
 
+            // NOUVEAU : paramètre de type objet -> on le construit depuis la requête
+            if (!isSimple(type)) {
+                args[i] = bindObject(type, req);
+                continue;
+            }
+
             String nomParam = p.getName();
             String valeur = req.getParameter(nomParam);
-
-            // vérification : le paramètre attendu doit exister dans la requête
             if (valeur == null) {
                 throw new IllegalArgumentException(
                     "Paramètre manquant : '" + nomParam + "' attendu par " + method.getName());
             }
-
-            // conversion simple selon le type attendu, sans construire d'objet
             args[i] = convertir(valeur, type, nomParam);
         }
         return args;
+    }
+
+    private boolean isSimple(Class<?> t) {
+        return t.isPrimitive() || t == String.class
+            || Number.class.isAssignableFrom(t) || t == Boolean.class;
+    }
+
+    private Object bindObject(Class<?> type, HttpServletRequest req) throws Exception {
+        Object obj = type.getDeclaredConstructor().newInstance();
+        boolean auMoinsUn = false;
+
+        for (Field f : type.getDeclaredFields()) {
+            if (Modifier.isStatic(f.getModifiers())) continue;
+
+            String valeur = req.getParameter(f.getName());
+            if (valeur == null) continue;
+
+            Object convertie = convertir(valeur, f.getType(), f.getName());
+
+            f.setAccessible(true);      
+            f.set(obj, convertie);     
+            auMoinsUn = true;
+        }
+
+        if (!auMoinsUn) {
+            throw new IllegalArgumentException(
+                "Aucun paramètre de la requête ne correspond aux attributs de " + type.getSimpleName());
+        }
+        return obj;
     }
 
     private Object convertir(String valeur, Class<?> type, String nomParam) {
