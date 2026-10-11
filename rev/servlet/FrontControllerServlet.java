@@ -8,8 +8,10 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.lang.reflect.Method;
+import java.lang.reflect.Parameter;
 import java.util.List;
 import java.util.Map;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.springframework.context.ApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
@@ -17,6 +19,7 @@ import org.springframework.web.context.support.WebApplicationContextUtils;
 import rev.utils.Mapping;
 import rev.utils.ModelAndView;
 import rev.utils.UrlMethode;
+import rev.annotation.controller.WebApi;
 
 public class FrontControllerServlet extends HttpServlet {
 
@@ -30,20 +33,53 @@ public class FrontControllerServlet extends HttpServlet {
         return (List<String>) getServletContext().getAttribute("annotedClasses");
     }
 
-    private Object[] resolveArgs(Method method) {
-        Class<?>[] paramTypes = method.getParameterTypes();
-        Object[] args = new Object[paramTypes.length];
+    private String toJson(Object monObjet) throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        String json = mapper.writeValueAsString(monObjet);
+        return json;    
+    }
 
-        for (int i = 0; i < paramTypes.length; i++) {
-            if (ApplicationContext.class.isAssignableFrom(paramTypes[i])) {
-                ApplicationContext ctx =
-                        WebApplicationContextUtils.getWebApplicationContext(getServletContext());
-                args[i] = ctx;
-            } else {
-                args[i] = null;
+    private Object[] resolveArgsFromRequest(Method method, HttpServletRequest req) throws Exception {
+        Parameter[] params = method.getParameters();
+        Object[] args = new Object[params.length];
+
+        for (int i = 0; i < params.length; i++) {
+            Parameter p = params[i];
+            Class<?> type = p.getType();
+
+            // cas spécial déjà existant : injection du contexte Spring
+            if (ApplicationContext.class.isAssignableFrom(type)) {
+                args[i] = WebApplicationContextUtils.getWebApplicationContext(getServletContext());
+                continue;
             }
+
+            String nomParam = p.getName();
+            String valeur = req.getParameter(nomParam);
+
+            // vérification : le paramètre attendu doit exister dans la requête
+            if (valeur == null) {
+                throw new IllegalArgumentException(
+                    "Paramètre manquant : '" + nomParam + "' attendu par " + method.getName());
+            }
+
+            // conversion simple selon le type attendu, sans construire d'objet
+            args[i] = convertir(valeur, type, nomParam);
         }
         return args;
+    }
+
+    private Object convertir(String valeur, Class<?> type, String nomParam) {
+        try {
+            if (type == String.class) return valeur;
+            if (type == int.class || type == Integer.class) return Integer.parseInt(valeur);
+            if (type == long.class || type == Long.class) return Long.parseLong(valeur);
+            if (type == double.class || type == Double.class) return Double.parseDouble(valeur);
+            if (type == boolean.class || type == Boolean.class) return Boolean.parseBoolean(valeur);
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException(
+                "Paramètre '" + nomParam + "' = '" + valeur + "' incompatible avec " + type.getSimpleName());
+        }
+        throw new IllegalArgumentException("Type non supporté pour le moment : " + type.getName());
     }
 
     void processRequest(HttpServletRequest req, HttpServletResponse res) throws ServletException, IOException {
@@ -62,42 +98,62 @@ public class FrontControllerServlet extends HttpServlet {
         Mapping found = urlMappings.get(key);
 
         if (found != null) {
-            try {
-                Class<?> controllerClass = found.getControllerClass();
-                Object instance = controllerClass.getDeclaredConstructor().newInstance();
+            Method methode = found.getMethod();
+            if(methode.isAnnotationPresent(WebApi.class)){
+                try {
+                    Class<?> controllerClass = found.getControllerClass();
+                    Object instance = controllerClass.getDeclaredConstructor().newInstance();
+                    Object[] args = resolveArgsFromRequest(methode, req);
+                    Object resultat = methode.invoke(instance, args);
+                   
+                    String body = toJson(resultat);
+                    res.setContentType("application/json;charset=UTF-8");
+                    out.print(body);
 
-                Object[] args = resolveArgs(found.getMethod());
-                Object result = found.getMethod().invoke(instance, args);
+                } catch (Exception e) {
+                    res.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                    res.setContentType("application/json;charset=UTF-8");
+                    out.print("{\"error\":\"" + e.getMessage() + "\"}");
+                }
+            }
+            else{
+                try {
+                    Class<?> controllerClass = found.getControllerClass();
+                    Object instance = controllerClass.getDeclaredConstructor().newInstance();
 
-                if (result instanceof ModelAndView) {
-                    ModelAndView mv = (ModelAndView) result;
+                    Method methodToInvoke = found.getMethod();
+                    Object[] args = resolveArgsFromRequest(methodToInvoke, req);
+                    Object result = methodToInvoke.invoke(instance, args);
 
-                    for (Map.Entry<String, Object> entry : mv.getDonnees().entrySet()) {
-                        req.setAttribute(entry.getKey(), entry.getValue());
+                    if (result instanceof ModelAndView) {
+                        ModelAndView mv = (ModelAndView) result;
+
+                        for (Map.Entry<String, Object> entry : mv.getDonnees().entrySet()) {
+                            req.setAttribute(entry.getKey(), entry.getValue());
+                        }
+
+                        String prefix = getServletContext().getInitParameter("prefix");
+                        String suffix = getServletContext().getInitParameter("suffix");
+                        String cheminVue = prefix + mv.getVue() + suffix;
+
+                        RequestDispatcher dispatcher = req.getRequestDispatcher(cheminVue);
+                        dispatcher.forward(req, res);
+                        return;
+
+                    } else {
+                        out.println("<p>Tongasoa ato amin'ny <b>" + method + "</b></p>");
+                        out.println("<p><b>URI   :</b> " + url   + "</p>");
+                        out.println("<p><b>Query :</b> " + query + "</p>");
+                        out.println("<hr>");
+                        out.println("<p><b>Résultat de l'exécution :</b></p>");
+                        out.println("<p>" + result + "</p>");
                     }
 
-                    String prefix = getServletContext().getInitParameter("prefix");
-                    String suffix = getServletContext().getInitParameter("suffix");
-                    String cheminVue = prefix + mv.getVue() + suffix;
-
-                    RequestDispatcher dispatcher = req.getRequestDispatcher(cheminVue);
-                    dispatcher.forward(req, res);
-                    return;
-
-                } else {
-                    out.println("<p>Tongasoa ato amin'ny <b>" + method + "</b></p>");
-                    out.println("<p><b>URI   :</b> " + url   + "</p>");
-                    out.println("<p><b>Query :</b> " + query + "</p>");
-                    out.println("<hr>");
-                    out.println("<p><b>Résultat de l'exécution :</b></p>");
-                    out.println("<p>" + result + "</p>");
+                } catch (Exception e) {
+                    out.println("<p style=\"color:red;\"><b>Erreur lors de l'invocation :</b> " + e.getMessage() + "</p>");
+                    e.printStackTrace();
                 }
-
-            } catch (Exception e) {
-                out.println("<p style=\"color:red;\"><b>Erreur lors de l'invocation :</b> " + e.getMessage() + "</p>");
-                e.printStackTrace();
             }
-
         } else {
             out.println("<p>Tongasoa ato amin'ny <b>" + method + "</b></p>");
             out.println("<p><b>URI   :</b> " + url   + "</p>");
