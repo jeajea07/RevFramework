@@ -2,15 +2,19 @@ package rev.servlet;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.RequestDispatcher;
+import jakarta.servlet.annotation.MultipartConfig;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.Part;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.PrintWriter;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
+import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -18,11 +22,16 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.context.ApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
 
+import rev.utils.FichierUpload;
 import rev.utils.Mapping;
 import rev.utils.ModelAndView;
 import rev.utils.UrlMethode;
 import rev.annotation.controller.WebApi;
 
+@MultipartConfig(
+    maxFileSize = 10 * 1024 * 1024,      // 10 Mo par fichier
+    maxRequestSize = 20 * 1024 * 1024    // 20 Mo par requête
+)
 public class FrontControllerServlet extends HttpServlet {
 
     @SuppressWarnings("unchecked")
@@ -38,7 +47,7 @@ public class FrontControllerServlet extends HttpServlet {
     private String toJson(Object monObjet) throws Exception {
         ObjectMapper mapper = new ObjectMapper();
         String json = mapper.writeValueAsString(monObjet);
-        return json;    
+        return json;
     }
 
     private Object[] resolveArgsFromRequest(Method method, HttpServletRequest req) throws Exception {
@@ -54,7 +63,18 @@ public class FrontControllerServlet extends HttpServlet {
                 continue;
             }
 
-            // NOUVEAU : paramètre de type objet -> on le construit depuis la requête
+            // Upload : doit être testé AVANT le binding d'objet
+            if (type == FichierUpload.class) {
+                FichierUpload f = lireFichier(p.getName(), req);
+                if (f == null) {
+                    throw new IllegalArgumentException(
+                        "Fichier manquant : '" + p.getName() + "' attendu par " + method.getName());
+                }
+                args[i] = f;
+                continue;
+            }
+
+            // Paramètre de type objet -> on le construit depuis la requête
             if (!isSimple(type)) {
                 args[i] = bindObject(type, req);
                 continue;
@@ -76,6 +96,43 @@ public class FrontControllerServlet extends HttpServlet {
             || Number.class.isAssignableFrom(t) || t == Boolean.class;
     }
 
+    private boolean isMultipart(HttpServletRequest req) {
+        String ct = req.getContentType();
+        return ct != null && ct.toLowerCase().startsWith("multipart/");
+    }
+
+    /**
+     * Lit la Part portant ce nom et construit un FichierUpload.
+     * Retourne null si la requête n'est pas multipart ou si aucun fichier n'a été envoyé.
+     */
+    private FichierUpload lireFichier(String nomParam, HttpServletRequest req) throws Exception {
+        if (!isMultipart(req)) return null;
+
+        Part part = req.getPart(nomParam);
+        if (part == null || part.getSize() == 0) return null;
+
+        String soumis = part.getSubmittedFileName();
+        if (soumis == null || soumis.isBlank()) return null;
+
+        // On ne garde que le nom de base (certains navigateurs envoient un chemin complet,
+        // et "../../x" est une faille de sécurité)
+        String original = Paths.get(soumis.replace('\\', '/')).getFileName().toString();
+
+        String nom = original;
+        String extension = "";
+        int dot = original.lastIndexOf('.');
+        if (dot > 0) {
+            nom = original.substring(0, dot);
+            extension = original.substring(dot + 1);
+        }
+
+        byte[] contenu;
+        try (InputStream in = part.getInputStream()) {
+            contenu = in.readAllBytes();
+        }
+        return new FichierUpload(nom, extension, contenu);
+    }
+
     private Object bindObject(Class<?> type, HttpServletRequest req) throws Exception {
         Object obj = type.getDeclaredConstructor().newInstance();
         boolean auMoinsUn = false;
@@ -83,13 +140,24 @@ public class FrontControllerServlet extends HttpServlet {
         for (Field f : type.getDeclaredFields()) {
             if (Modifier.isStatic(f.getModifiers())) continue;
 
+            // Champ de type FichierUpload dans l'objet
+            if (f.getType() == FichierUpload.class) {
+                FichierUpload fichier = lireFichier(f.getName(), req);
+                if (fichier != null) {
+                    f.setAccessible(true);
+                    f.set(obj, fichier);
+                    auMoinsUn = true;
+                }
+                continue;
+            }
+
             String valeur = req.getParameter(f.getName());
             if (valeur == null) continue;
 
             Object convertie = convertir(valeur, f.getType(), f.getName());
 
-            f.setAccessible(true);      
-            f.set(obj, convertie);     
+            f.setAccessible(true);
+            f.set(obj, convertie);
             auMoinsUn = true;
         }
 
@@ -131,13 +199,13 @@ public class FrontControllerServlet extends HttpServlet {
 
         if (found != null) {
             Method methode = found.getMethod();
-            if(methode.isAnnotationPresent(WebApi.class)){
+            if (methode.isAnnotationPresent(WebApi.class)) {
                 try {
                     Class<?> controllerClass = found.getControllerClass();
                     Object instance = controllerClass.getDeclaredConstructor().newInstance();
                     Object[] args = resolveArgsFromRequest(methode, req);
                     Object resultat = methode.invoke(instance, args);
-                   
+
                     String body = toJson(resultat);
                     res.setContentType("application/json;charset=UTF-8");
                     out.print(body);
@@ -148,7 +216,7 @@ public class FrontControllerServlet extends HttpServlet {
                     out.print("{\"error\":\"" + e.getMessage() + "\"}");
                 }
             }
-            else{
+            else {
                 try {
                     Class<?> controllerClass = found.getControllerClass();
                     Object instance = controllerClass.getDeclaredConstructor().newInstance();
