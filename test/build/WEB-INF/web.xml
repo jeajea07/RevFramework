@@ -18,6 +18,12 @@
         <param-value>.jsp</param-value>
     </context-param>
 
+    <!-- Sprint 8 : dossier de destination des uploads (chemin absolu, hors de l'application déployée) -->
+    <context-param>
+        <param-name>uploadDir</param-name>
+        <param-value>/home/jeannie/Documents/IT-University/L2/S6/RevFramework/test/src/main/java/uploads</param-value>
+    </context-param>
+
     <context-param>
         <param-name>db.driver</param-name>
         <param-value>com.mysql.cj.jdbc.Driver</param-value>
@@ -52,6 +58,8 @@
         <listener-class>rev.listener.RevInitListener</listener-class>
     </listener>
 
+    <!-- Le multipart est activé par @MultipartConfig sur FrontControllerServlet.
+         N'ajoute pas <multipart-config> ici en plus. -->
     <servlet>
         <servlet-name>FrontControllerServlet</servlet-name>
         <servlet-class>rev.servlet.FrontControllerServlet</servlet-class>
