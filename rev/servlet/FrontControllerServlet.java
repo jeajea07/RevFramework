@@ -6,6 +6,7 @@ import jakarta.servlet.annotation.MultipartConfig;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import jakarta.servlet.http.Part;
 import java.io.IOException;
 import java.io.InputStream;
@@ -15,6 +16,8 @@ import java.lang.reflect.Parameter;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.nio.file.Paths;
+import java.util.Collections;
+import java.util.Enumeration;
 import java.util.List;
 import java.util.Map;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -25,6 +28,7 @@ import org.springframework.web.context.support.WebApplicationContextUtils;
 import rev.utils.FichierUpload;
 import rev.utils.Mapping;
 import rev.utils.ModelAndView;
+import rev.utils.RevSession;
 import rev.utils.UrlMethode;
 import rev.annotation.controller.WebApi;
 
@@ -46,8 +50,7 @@ public class FrontControllerServlet extends HttpServlet {
 
     private String toJson(Object monObjet) throws Exception {
         ObjectMapper mapper = new ObjectMapper();
-        String json = mapper.writeValueAsString(monObjet);
-        return json;
+        return mapper.writeValueAsString(monObjet);
     }
 
     private Object[] resolveArgsFromRequest(Method method, HttpServletRequest req) throws Exception {
@@ -74,6 +77,19 @@ public class FrontControllerServlet extends HttpServlet {
                 continue;
             }
 
+            // Session : HttpSession -> RevSession (doit aussi être avant le binding d'objet)
+            if (type == RevSession.class) {
+                RevSession rs = new RevSession();
+                HttpSession http = req.getSession();
+                Enumeration<String> noms = http.getAttributeNames();
+                while (noms.hasMoreElements()) {
+                    String nom = noms.nextElement();
+                    rs.add(nom, http.getAttribute(nom));
+                }
+                args[i] = rs;
+                continue;
+            }
+
             // Paramètre de type objet -> on le construit depuis la requête
             if (!isSimple(type)) {
                 args[i] = bindObject(type, req);
@@ -91,6 +107,26 @@ public class FrontControllerServlet extends HttpServlet {
         return args;
     }
 
+    // RevSession -> HttpSession : on écrase la vraie session avec le contenu de RevSession
+    private void syncSession(Object[] args, HttpServletRequest req) {
+        for (Object arg : args) {
+            if (arg instanceof RevSession) {
+                HttpSession http = req.getSession();
+
+                // 1. on vide la vraie session
+                List<String> aSupprimer = Collections.list(http.getAttributeNames());
+                for (String nom : aSupprimer) {
+                    http.removeAttribute(nom);
+                }
+
+                // 2. on la remplit avec le contenu de RevSession
+                for (Map.Entry<String, Object> e : ((RevSession) arg).getDonnees().entrySet()) {
+                    http.setAttribute(e.getKey(), e.getValue());
+                }
+            }
+        }
+    }
+
     private boolean isSimple(Class<?> t) {
         return t.isPrimitive() || t == String.class
             || Number.class.isAssignableFrom(t) || t == Boolean.class;
@@ -101,10 +137,6 @@ public class FrontControllerServlet extends HttpServlet {
         return ct != null && ct.toLowerCase().startsWith("multipart/");
     }
 
-    /**
-     * Lit la Part portant ce nom et construit un FichierUpload.
-     * Retourne null si la requête n'est pas multipart ou si aucun fichier n'a été envoyé.
-     */
     private FichierUpload lireFichier(String nomParam, HttpServletRequest req) throws Exception {
         if (!isMultipart(req)) return null;
 
@@ -114,8 +146,6 @@ public class FrontControllerServlet extends HttpServlet {
         String soumis = part.getSubmittedFileName();
         if (soumis == null || soumis.isBlank()) return null;
 
-        // On ne garde que le nom de base (certains navigateurs envoient un chemin complet,
-        // et "../../x" est une faille de sécurité)
         String original = Paths.get(soumis.replace('\\', '/')).getFileName().toString();
 
         String nom = original;
@@ -206,6 +236,8 @@ public class FrontControllerServlet extends HttpServlet {
                     Object[] args = resolveArgsFromRequest(methode, req);
                     Object resultat = methode.invoke(instance, args);
 
+                    syncSession(args, req);   // RevSession -> HttpSession
+
                     String body = toJson(resultat);
                     res.setContentType("application/json;charset=UTF-8");
                     out.print(body);
@@ -224,6 +256,8 @@ public class FrontControllerServlet extends HttpServlet {
                     Method methodToInvoke = found.getMethod();
                     Object[] args = resolveArgsFromRequest(methodToInvoke, req);
                     Object result = methodToInvoke.invoke(instance, args);
+
+                    syncSession(args, req);   // RevSession -> HttpSession, AVANT le forward
 
                     if (result instanceof ModelAndView) {
                         ModelAndView mv = (ModelAndView) result;
