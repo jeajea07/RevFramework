@@ -8,7 +8,7 @@ import rev.annotation.controller.WebApi;
 import rev.utils.RevSession;
 
 @Controller
-public class Test7 {
+public class Test6 {
 
     @WebApi
     @UrlMapping(value = "/api/counter", method = "GET")
