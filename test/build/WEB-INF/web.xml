@@ -18,6 +18,12 @@
         <param-value>.jsp</param-value>
     </context-param>
 
+    <!-- Paramètre pour l'authentification -->
+    <context-param>
+        <param-name>authAttribute</param-name>
+        <param-value>userRoles</param-value>
+    </context-param>
+
     <!-- Sprint 8 : dossier de destination des uploads (chemin absolu, hors de l'application déployée) -->
     <context-param>
         <param-name>uploadDir</param-name>

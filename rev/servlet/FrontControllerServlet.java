@@ -25,6 +25,7 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
 
 import rev.annotation.controller.Auth;
+import rev.annotation.controller.Role;
 import rev.annotation.controller.WebApi;
 import rev.utils.FichierUpload;
 import rev.utils.Mapping;
@@ -71,22 +72,44 @@ public class FrontControllerServlet extends HttpServlet {
         return false;
     }
 
+    private boolean possedeUnDesRoles(Object roles, String[] rolesAutorises) {
+        for (String role : rolesAutorises) {
+            if (possedeRole(roles, role)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private Object lireRolesUtilisateur(HttpServletRequest req) {
+        String nomAttribut = (String) getServletContext().getAttribute("authAttribute");
+        HttpSession session = req.getSession(false);
+        if (session == null || nomAttribut == null) {
+            return null;
+        }
+        return session.getAttribute(nomAttribut);
+    }
+
     private boolean checkAuthorization(Method methode, Class<?> classe, HttpServletRequest req,
                                        HttpServletResponse res, boolean api) throws IOException {
+        Role role = methode.getAnnotation(Role.class);
         Auth auth = trouverAuth(methode, classe);
-        if (auth == null) {
+
+        if (role == null && auth == null) {
             return true;
         }
 
-        String nomAttribut = (String) getServletContext().getAttribute("authAttribute");
-        HttpSession session = req.getSession(false);
-        Object roles = null;
-        if (session != null && nomAttribut != null) {
-            roles = session.getAttribute(nomAttribut);
-        }
-
+        Object roles = lireRolesUtilisateur(req);
         if (roles == null) {
             ResponseHelper.handleUnauthorized(res, api);
+            return false;
+        }
+
+        if (role != null) {
+            if (possedeUnDesRoles(roles, role.value())) {
+                return true;
+            }
+            ResponseHelper.handleForbidden(res, api);
             return false;
         }
 
