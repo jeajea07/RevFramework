@@ -1,33 +1,34 @@
 package controllers;
 
+import java.util.Map;
+
 import rev.annotation.controller.Controller;
 import rev.annotation.controller.UrlMapping;
-import rev.utils.ModelAndView;
+import rev.annotation.controller.WebApi;
 import rev.utils.RevSession;
 
 @Controller
-public class Test6 {
+public class Test7 {
 
-    @UrlMapping(value = "/Test6/accueil/afficher", method = "GET")
-    public ModelAndView afficher(RevSession session) {
-        ModelAndView mv = new ModelAndView("accueil");
-        mv.addObject("message", "Contenu actuel de la session");
-        return mv;
+    @WebApi
+    @UrlMapping(value = "/api/counter", method = "GET")
+    public Map<String, Object> counter(RevSession session) {
+        Integer count = session.getAttribute("requestCount", Integer.class);
+        count = (count == null) ? 1 : count + 1;
+        session.setAttribute("requestCount", count);
+        return Map.of("requestCount", count, "sessionId", session.getId());
     }
 
-    @UrlMapping(value = "/Test6/accueil/ajouter", method = "POST")
-    public ModelAndView ajouter(String cle, String valeur, RevSession session) {
-        session.add(cle, valeur);
-        ModelAndView mv = new ModelAndView("accueil");
-        mv.addObject("message", "Ajouté : " + cle + " = " + valeur);
-        return mv;
+    @WebApi
+    @UrlMapping(value = "/api/session", method = "GET")
+    public Map<String, Object> session(RevSession session) {
+        return session.getAttributes();
     }
 
-    @UrlMapping(value = "/Test6/accueil/supprimer", method = "POST")
-    public ModelAndView supprimer(String cle, RevSession session) {
-        session.remove(cle);
-        ModelAndView mv = new ModelAndView("accueil");
-        mv.addObject("message", "Supprimé : " + cle);
-        return mv;
+    @WebApi
+    @UrlMapping(value = "/api/session/reset", method = "GET")
+    public String reset(RevSession session) {
+        session.clear();
+        return "OK";
     }
 }
